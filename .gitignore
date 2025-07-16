@@ -1,3 +1,12 @@
 *.env
 /learing.md
 
+__pycache__
+
+chroma_db/
+
+figures/
+
+temp.py
+
+

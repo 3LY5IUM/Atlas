@@ -23,11 +23,12 @@ DEFAULT_MAX_IMAGE_SIZE = (1024, 1024)
 class Config:
     # Gemini Models (Free Tier)
     CHAT_MODEL: str = "gemini-2.5-flash"
-    EMBEDDING_MODEL: str = "gemini-embedding-exp-03-07"
+    EMBEDDING_MODEL: str = "models/embedding-001"
     VISION_MODEL: str = "gemini-2.5-flash"
     
     # API Configuration
     GEMINI_API_KEY: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
+
     
     # ChromaDB Configuration
     CHROMA_DB_PATH: str = "./chroma_db"

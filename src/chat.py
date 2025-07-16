@@ -33,14 +33,13 @@ llm = ChatGoogleGenerativeAI(
 
 def get_respo(
         query: str,
-        vector_store,
+        results: List[Dict],
         chat_history: List[Dict[str,str]] ) -> str:
     # generate the response to a user query.
         try:
             # retrives relevant documents.
-            relevant_docs = vector_store.query(query)
 
-            if not relevant_docs:
+            if not results:
                 return "Sorry Sir but I could not find any relevant information in the upladed data to answer this query."
 
             # build context
@@ -49,7 +48,7 @@ def get_respo(
             image_contents = []
 
 
-            for i, doc in enumerate( relevant_docs ):
+            for i, doc in enumerate(results):
                 context_part = f" Document {i+1} (source: {doc['metadata'].get('source', 'who knows')}):\n"
 
                 # image

@@ -11,10 +11,11 @@ sys.path.append(str(current_dir))
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-from src.pdf_processor import PDF_processor
-from src.vectors import * 
-from src.chat import *
-from src.config import Config
+
+
+# Disable Streamlit's file watcher to avoid torch.classes inspection
+os.environ["STREAMLIT_SERVER_ENABLE_FILE_WATCHER"] = "false"
+
 
 
 
@@ -42,9 +43,14 @@ def main():
             os.environ["GEMINI_API_KEY"] = api_key
             st.sidebar.success("API key saved to .env")
         else:
-            st.sidebar.stop()
+            st.stop()
 
     os.environ["GEMINI_API_KEY"] = api_key
+
+    from src.config import Config
+    from src.pdf_processor import PDF_processor
+    from src.vectors import setup_vs, add_documents, query
+    from src.chat import get_respo
 
     st.title("Welcome sir, how may I assist you") 
     st.markdown("Upload any PDF document and I will analyze it to answer any query regarding it")
@@ -91,7 +97,8 @@ def main():
                     st.info(f"Processing: {uploaded_file.name}")
 
                     # save uploaded file temporarily
-                    temp_path = f"temp_{uploaded_file}"
+                    safe_name = Path(uploaded_file.name).name
+                    temp_path = f"temp_{safe_name}"
                     with open(temp_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
 
@@ -106,66 +113,81 @@ def main():
                 add_documents(st.session_state.vector_store, all_elements)
                 st.session_state.documents_processed = True
 
-                st.success("Sucessfully analyzed {len(uploaded_files)} documents with {len(all_elements)} elements")
+                st.success(f"Sucessfully analyzed {len(uploaded_files)} documents with {len(all_elements)} elements")
 
             except Exception as e:
                 st.error(f"Error processing documents: {str(e)}")
 
 
 
-        # chat interface.
-        st.markdown("---")
-        st.header("Which query may I assist you regarding this document Sir")
+    # chat interface.
+    st.markdown("---")
+    st.header("Which query may I assist you regarding this document Sir")
 
-        if not st.session_state.documents_processed:
-            st.info("Please upload and process documents to start chatting.")
-            return
+    if not st.session_state.documents_processed:
+        st.info("Please upload and process documents to start chatting.")
+        return
 
-        # display chat message
+    # Display chat history 
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-        if prompt := st.chat_input("What queries do you have regarding this pdf Sir"):
-            # add the user mssg.
-            st.session_state.append({"role": "user", "content":prompt})
+    # display chat message
 
-            # st.chat_mssg is used for creating chating bubbles.
-            with st.chat_message("assistant"):
-                with st.spinner("Analyzing..."):
-                    try:
-                        class VectorStoreQuery:
-                            def __init__(self, store) -> None:
-                                # make an instance attribute and not an local variable.
-                                self.store = store
+    if prompt := st.chat_input("What queries do you have regarding this pdf Sir"):
+        # add the user mssg.
+        st.session_state.messages.append({"role": "user", "content":prompt})
 
-                            def query(self, query_text):
-                                results = query(self.store, query_text)
-                                processed_results = []
-                                for doc in results:
-                                    processed_results.append({
-                                        "content": doc.page_content,
-                                        "metadata": doc.metadata
-                                        })
-                                return processed_results
 
-                        vector_query = VectorStoreQuery(st.session_state.vector_store)
+        # display the user query.
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-                        response = get_respo(
-                                prompt,
-                                vector_query,
-                                # arr[start(inc): stop(exc): step]
-                                st.session_state.messages[:-1]
-                                )
+        # st.chat_mssg is used for creating chating bubbles.
+        with st.chat_message("assistant"):
+            with st.spinner("Analyzing..."):
+                try:
 
-                        st.markdown(response)
-                        st.session_state.messages.append({"role": "assistant", "content": response})
-                    except Exception as e:
-                        error_msg = f"Sorry sir but there is an error generating response: {str(e)}"
-                        st.error(error_msg)
-                        st.session_state.messages.append({"role": "assistant", "content": error_msg})
+                    # Query the vector store directly
+                    results = query(st.session_state.vector_store, prompt)
+                
+                    # Process results into expected format
+                    processed_results = []
+                    for doc in results:
+                        processed_results.append({
+                            "content": doc.page_content,
+                            "metadata": doc.metadata
+                            })
+
+
+                    response = get_respo(
+                            prompt,
+                            processed_results,
+                            # arr[start(inc): stop(exc): step]
+                            st.session_state.messages[:-1]
+                            )
+
+                    st.markdown(response)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    # with st.sidebar:
+                    #     st.write("**Debug Info:**")
+                    #     st.write(f"Messages count: {len(st.session_state.messages)}")
+                    #     st.write(f"Documents processed: {st.session_state.documents_processed}")
+                    #
+                    #     if st.button("Clear Chat History"):
+                    #         st.session_state.messages = []
+                    #         st.rerun()
+                except Exception as e:
+                    error_msg = f"Sorry sir but there is an error generating response: {str(e)}"
+                    st.error(error_msg)
+                    # st.code(textwrap.indent(traceback.format_exc(), "    "))
+                    st.session_state.messages.append({"role": "assistant", "content": error_msg})
 
 
 
 if __name__ == "__main__":
     main()
-    
+
 
 

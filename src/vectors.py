@@ -3,11 +3,27 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from typing import List, Dict, Any
+import os
 
 from .config import Config
 
 
-def setup_vs(api_key= Config.API_KEY, collection_name: str = "docs"):
+def setup_vs(api_key=None, collection_name: str = "docs"):
+ # Evaluate the API key at CALL time, not DEFINITION time
+    if api_key is None:
+        api_key = os.getenv("GEMINI_API_KEY", "")
+        if not api_key:
+            # Create Config instance to get the key
+            config = Config()
+            api_key = config.GEMINI_API_KEY
+    
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY is required but not found")
+
+    config = Config()
+
+
+
     embeddings = GoogleGenerativeAIEmbeddings(
             google_api_key= api_key,
             model= Config.EMBEDDING_MODEL

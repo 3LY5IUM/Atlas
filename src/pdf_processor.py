@@ -105,7 +105,6 @@ class PDF_processor:
             # ByteIO is used for in in memory data stream.
             image = Image.open(io.BytesIO(image_data))
 
-            # resize the image if it is too large
 
 
 
