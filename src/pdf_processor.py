@@ -18,8 +18,6 @@ import io
 class PDF_processor:
     def __init__(self):
         self.config = Config()
-        # configuring gemini.
-        # genai.
 
         self.vision_model = ChatGoogleGenerativeAI(
                 model=self.config.VISION_MODEL,  # e.g., "gemini-1.5-flash", "gemini-pro-vision"
@@ -71,8 +69,10 @@ class PDF_processor:
                     if "text_as_html" in element.metadata and element.metadata["text_as_html"]:
                         processed_element["html_content"] = element.metadata.get("text_as_html")
                         # no real value... just use type.
-                        # processed_element["content_type"] = "table"
+                    processed_element["content_type"] = "table"
                 elif element.metadata.get("category") == "Image":
+                    processed_element["content_type"] = "image"
+
                     if "image_base64" in element.metadata and element.metadata["image_base64"]:
                         image_as_base64 = element.metadata.get("image_base64")
                         # kida not usefull but let it be for the safer side ig.
@@ -85,9 +85,9 @@ class PDF_processor:
                             processed_element["image_desc"] = image_desc
                             processed_element["content"] = f"Image: {image_desc}"
 
-                # else:
+                else:
                         # regular text
-                        # processed_element["content_type"] = "text"
+                        processed_element["content_type"] = "text"
 
                 processed_elements.append(processed_element)
 
@@ -110,7 +110,7 @@ class PDF_processor:
 
 
             # Image.size if a PIL method that return a tupple with (hori, ver) so that is why we are checking both..
-            if image.size[0] > self.cofig.MAX_IMAGE_SIZE[0] or image.size[1] > self.config.MAX_IMAGE_SIZE[1]:
+            if image.size[0] > self.config.MAX_IMAGE_SIZE[0] or image.size[1] > self.config.MAX_IMAGE_SIZE[1]:
                 image.thumbnail(self.config.MAX_IMAGE_SIZE, Image.Resampling.LANCZOS)
 
             prompt = """Analyze this image and provide a detailed description. Include:
@@ -139,7 +139,7 @@ class PDF_processor:
 
                                           ]
                                       ),
-                        SystemMessage("you are an formal assistant. your name is Atlas.  you will address the user as sir and always be accurate and to the point")
+                        SystemMessage("you are an image analyzing assistant, analyze all images with atmost accuracy to retrive all information from it.")
                         ]
 
             # generating a response.
@@ -155,7 +155,7 @@ class PDF_processor:
 
         except Exception as e:
             print(f"Error analyzing image with Gemini: {str(e)}")
-            return "Image could not be analyzed"
+            return "Image could not be analyzed for image description."
 
 
 
