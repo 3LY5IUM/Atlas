@@ -1,4 +1,3 @@
-from langchain_core import embeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -39,22 +38,6 @@ def setup_vs(api_key=None, collection_name: str = "docs"):
         embedding_function=embeddings,
         persist_directory=str(persist_path)
         )
-
-def check_file_in_vectorstore(store, file_path: str) -> Dict[str, Any]:
-    """Check if file exists in vector store and return its metadata"""
-    try:
-        results = store.get(
-            where={"source": str(file_path)},
-            include=["metadatas"]
-        )
-        
-        if results.get('metadatas'):
-            # Return first metadata (all chunks from same file should have same hash)
-            return results['metadatas'][0]
-        return {}
-    except Exception as e:
-        print(f"Error checking file in vector store: {str(e)}")
-        return {}
 
 def add_documents(store, elements: List[Dict[str, Any]]):
 

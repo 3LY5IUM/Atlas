@@ -51,15 +51,13 @@ class PDF_processor:
                 print(f"File already processed with same hash: {file_hash}")
                 return True
 
-
-
             return False
-
-
 
         except Exception as e:
             print(f"Error checking if file processed: {str(e)}")
             return False
+
+
 
     def remove_old_embeddings(self, file_path: str, vector_store):
         """Remove old embeddings for a file when content has changed"""
