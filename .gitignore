@@ -9,4 +9,10 @@ figures/
 
 temp.py
 
+mkdir/*
+
+.DS_Store
+
+pdfs/
+
 

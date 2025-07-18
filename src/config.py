@@ -26,6 +26,7 @@ class Config:
     EMBEDDING_MODEL: str = "models/embedding-001"
     VISION_MODEL: str = "gemini-2.5-flash"
     
+    PDF_INPUT_DIR= "./pdfs"
     # API Configuration
     GEMINI_API_KEY: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
 

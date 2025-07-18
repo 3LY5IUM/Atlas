@@ -87,7 +87,7 @@ Context:
 
 User Question: {query}
 
-Please provide a comprehensive answer based on the context above. If the context includes information from images or tables, make sure to incorporate that information in your response."""
+Please provide a comprehensive answer based on the context above. Make sure to also mention what is the answer about like Miscellaneous, Poshan Tracker Application, Officials (Dashboard) or Beneficiaray."""
 
 
             if chat_history:

@@ -7,6 +7,8 @@ import os
 
 from .config import Config
 
+from pathlib import Path
+
 
 def setup_vs(api_key=None, collection_name: str = "docs"):
  # Evaluate the API key at CALL time, not DEFINITION time
@@ -23,17 +25,36 @@ def setup_vs(api_key=None, collection_name: str = "docs"):
     config = Config()
 
 
+    # check for the persistant path
+    persist_path = Path(config.CHROMA_DB_PATH)
+    persist_path.mkdir(parents=True, exist_ok=True)
 
     embeddings = GoogleGenerativeAIEmbeddings(
             google_api_key= api_key,
-            model= Config.EMBEDDING_MODEL
+            model= Config.EMBEDDING_MODEL,
             )
 
     return Chroma(
                 collection_name=collection_name,
         embedding_function=embeddings,
-        persist_directory="./chroma_db"
+        persist_directory=str(persist_path)
         )
+
+def check_file_in_vectorstore(store, file_path: str) -> Dict[str, Any]:
+    """Check if file exists in vector store and return its metadata"""
+    try:
+        results = store.get(
+            where={"source": str(file_path)},
+            include=["metadatas"]
+        )
+        
+        if results.get('metadatas'):
+            # Return first metadata (all chunks from same file should have same hash)
+            return results['metadatas'][0]
+        return {}
+    except Exception as e:
+        print(f"Error checking file in vector store: {str(e)}")
+        return {}
 
 def add_documents(store, elements: List[Dict[str, Any]]):
 

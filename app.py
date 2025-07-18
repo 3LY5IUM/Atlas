@@ -4,6 +4,9 @@ import sys
 from dotenv import load_dotenv
 
 from pathlib import Path
+
+PDF_DIR = os.getenv("PDF_INPUT_DIR", "./pdfs")
+
 # add the dir to python path
 current_dir = Path(__file__).parent
 sys.path.append(str(current_dir))
@@ -11,13 +14,11 @@ sys.path.append(str(current_dir))
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-
-
 # Disable Streamlit's file watcher to avoid torch.classes inspection
+import torch
+
+torch.classes.__path__ = []
 os.environ["STREAMLIT_SERVER_ENABLE_FILE_WATCHER"] = "false"
-
-
-
 
 def main():
     st.set_page_config(
@@ -26,10 +27,7 @@ def main():
         layout="wide"
         )
 
-
-
     # sidebar
-
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         st.sidebar.warning("No Gemini API key found in .env.")
@@ -53,23 +51,16 @@ def main():
     from src.chat import get_respo
 
     st.title("Welcome sir, how may I assist you") 
-    st.markdown("Upload any PDF document and I will analyze it to answer any query regarding it")
-
+    st.markdown(f"Process the documents present in {PDF_DIR}")
 
     with st.sidebar:
-        st.header("Upload PDF documents")
-        uploaded_files = st.file_uploader(
-                "Upload PDF documents",
-                type="pdf",
-                accept_multiple_files=True,
-                help="this is where you are suppose to upload pdf files that you want to query."
-                )
+        pdf_paths = Path(PDF_DIR).rglob("*.pdf")          # recursive
+        pdf_list  = sorted(pdf_paths)                     # list[Path]
 
-        process_docs = st.button("Process Document", type="primary")
+        st.write(f"Found **{len(pdf_list)}** PDF(s) in _{PDF_DIR}_")
+        scan_now = st.button("Process PDFs")
 
-
-
-    # initialize components in session state( they stay in memory accross different times you reload stuff and the if statements ensure that they run only once.
+    # initialize components in session state
     if "config" not in st.session_state:
         st.session_state.config = Config()
     
@@ -85,40 +76,39 @@ def main():
     if "documents_processed" not in st.session_state:
         st.session_state.documents_processed = False
 
-
     # process the uploaded documents.
-
-    if process_docs and uploaded_files:
+    if scan_now and pdf_list:
         with st.spinner("Processing the uploaded documents to extract all relavent data..."):
             try:
                 all_elements = []
 
-                for uploaded_file in uploaded_files:
-                    st.info(f"Processing: {uploaded_file.name}")
+                for pdf_path in pdf_list:
+                    st.info(f"Processing: {pdf_path.name}")
+                    
+                    # CHANGE: Pass vector_store to process_pdf for duplicate checking
+                    elements = st.session_state.pdf_processor.process_pdf(
+                        str(pdf_path), 
+                        st.session_state.vector_store
+                    )
+                    
+                    # CHANGE: Only add if elements exist (not already processed)
+                    if elements:
+                        all_elements.extend(elements)
+                    else:
+                        st.info(f"📋 {pdf_path.name} already processed - skipped")
 
-                    # save uploaded file temporarily
-                    safe_name = Path(uploaded_file.name).name
-                    temp_path = f"temp_{safe_name}"
-                    with open(temp_path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-
-                    # process pdf
-                    elements = st.session_state.pdf_processor.process_pdf(temp_path)
-                    all_elements.extend(elements)
-
-                    # clean up temp file.... everything else will close on its own coz of with statement.
-                    os.remove(temp_path)
-
-
-                add_documents(st.session_state.vector_store, all_elements)
+                # CHANGE: Handle case where all files were already processed
+                if all_elements:
+                    add_documents(st.session_state.vector_store, all_elements)
+                    st.success(f"Successfully analyzed {len(pdf_list)} documents with {len(all_elements)} elements")
+                else:
+                    st.info("📋 All documents already processed - no new elements added")
+                
+                # Always mark as processed so chat interface becomes available
                 st.session_state.documents_processed = True
-
-                st.success(f"Sucessfully analyzed {len(uploaded_files)} documents with {len(all_elements)} elements")
 
             except Exception as e:
                 st.error(f"Error processing documents: {str(e)}")
-
-
 
     # chat interface.
     st.markdown("---")
@@ -134,11 +124,9 @@ def main():
             st.markdown(message["content"])
 
     # display chat message
-
     if prompt := st.chat_input("What queries do you have regarding this pdf Sir"):
         # add the user mssg.
         st.session_state.messages.append({"role": "user", "content":prompt})
-
 
         # display the user query.
         with st.chat_message("user"):
@@ -148,7 +136,6 @@ def main():
         with st.chat_message("assistant"):
             with st.spinner("Analyzing..."):
                 try:
-
                     # Query the vector store directly
                     results = query(st.session_state.vector_store, prompt)
                 
@@ -160,7 +147,6 @@ def main():
                             "metadata": doc.metadata
                             })
 
-
                     response = get_respo(
                             prompt,
                             processed_results,
@@ -170,24 +156,12 @@ def main():
 
                     st.markdown(response)
                     st.session_state.messages.append({"role": "assistant", "content": response})
-                    # with st.sidebar:
-                    #     st.write("**Debug Info:**")
-                    #     st.write(f"Messages count: {len(st.session_state.messages)}")
-                    #     st.write(f"Documents processed: {st.session_state.documents_processed}")
-                    #
-                    #     if st.button("Clear Chat History"):
-                    #         st.session_state.messages = []
-                    #         st.rerun()
+                    
                 except Exception as e:
                     error_msg = f"Sorry sir but there is an error generating response: {str(e)}"
                     st.error(error_msg)
-                    # st.code(textwrap.indent(traceback.format_exc(), "    "))
                     st.session_state.messages.append({"role": "assistant", "content": error_msg})
-
-
 
 if __name__ == "__main__":
     main()
-
-
 
